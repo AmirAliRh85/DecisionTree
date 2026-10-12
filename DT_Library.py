@@ -5,67 +5,45 @@
         Internal node: feature_index, threshold, left, right are set.
         Leaf node:     value (predicted class) is set, children are None.
     """
-    def __init__(
-        self,
-        feature_index=None,
-        threshold=None,
-        left=None,
-        right=None,
-        value=None,
-        samples=0,
-        impurity=0.0,
-        class_counts=None,
-    ):
-        """
-        Constructor for Node class
-        with the attributes and hyperparameters.
-        """
-        raise  NotImplementedError
+    def __init__(self , feature_index=None , threshold=None , left=None , right=None , value=None , samples=0 , impurity=0.0 , class_counts=None) :
+        self.feature_index = feature_index
+        self.threshold = threshold
+        self.left = left
+        self.right = right
+        self.value = value
+        self.samples = samples
+        self.impurity = impurity
+        self.class_counts = class_counts
 
     def is_leaf(self):
-        """
-        Check whether this node is a leaf node.
-        Return True if the node has no children; otherwise, return False.
-        """
-        # TODO
-        pass
+        if (self.left == None and self.right == None) :
+            return True
+        return False
 
 
 class DecisionTree:
 
-    def __init__(
-        self,
-        criterion="gini",
-        max_depth=None,
-        min_samples_split=2,
-        min_samples_leaf=1,
-        max_features=None,
-        random_state=None,
-    ):
+    def __init__(self , criterion="gini" , max_depth=None , min_samples_split=2 , min_samples_leaf=1 , max_features=None , random_state=None):
         # Hyperparameters
         # criterion_type ="gini or entropy"
-        # self.criterion = criterion
-        # self.max_depth = max_depth
-        # self.min_samples_split = min_samples_split
-        # self.min_samples_leaf = min_samples_leaf
-        # self.max_features = max_features
-        #self.random_state = random_state
+        self.criterion = criterion
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.min_samples_leaf = min_samples_leaf
+        self.max_features = max_features
+        self.random_state = random_state
         #
         # # Learned attributes
-        # self.root_ = None
-        # self.n_features_ = None
-        # self.n_classes_ = None
-        # self.classes_ = None
-        # self.n_nodes_ = None
-        # self.depth_ = None
-        # self.feature_importances_ = None  
+        self.root_ = None
+        self.n_features_ = None
+        self.n_classes_ = None
+        self.classes_ = None
+        self.n_nodes_ = None
+        self.depth_ = None
+        self.feature_importances_ = None
 
-        # TODO
-        pass
+        
 
-    # =========================
-    # Training
-    # =========================
     def _weighted_entropy(self, y_left, y_right):
         """
         Calculate the weighted entropy after splitting a node into two children.
