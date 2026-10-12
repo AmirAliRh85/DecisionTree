@@ -1,4 +1,7 @@
-﻿class Node:
+﻿import math
+import numpy as np
+
+class Node:
     """
         Represents a node of the decision tree.
     
@@ -15,10 +18,12 @@
         self.impurity = impurity
         self.class_counts = class_counts
 
+
     def is_leaf(self):
         if (self.left == None and self.right == None) :
             return True
         return False
+
 
 
 class DecisionTree:
@@ -41,123 +46,88 @@ class DecisionTree:
         self.n_nodes_ = None
         self.depth_ = None
         self.feature_importances_ = None
+  
 
+    def _weighted_entropy(self , y_left : np.ndarray , y_right : np.ndarray) :
+        w_left = len(y_left) / (len(y_left) + len(y_right))
+        w_right = len(y_right) / (len(y_left) + len(y_right))
+
+        y_left_values , y_left_counts = np.unique(y_left , return_counts=True)
+        y_right_values , y_right_counts = np.unique(y_right , return_counts=True)
+
+        y_left_entropy = 0
+        y_right_entropy = 0
         
+        for i in y_left_counts :
+            p = (i / len(y_left))
+            if (p != 0) :
+                y_left_entropy += p * math.log(p , 2)
+            
+        for i in y_right_counts :
+            p = (i / len(y_right))
+            if (p != 0) :
+                y_right_entropy += p * math.log(p , 2)
 
-    def _weighted_entropy(self, y_left, y_right):
-        """
-        Calculate the weighted entropy after splitting a node into two children.
+        y_left_entropy *= -1
+        y_right_entropy *= -1
 
-        Input:
-            y_left: Target labels belonging to the left child.
-            y_right: Target labels belonging to the right child.
+        return y_left_entropy * w_left + y_right_entropy * w_right
 
-        Steps:
-            1. Calculate the total number of samples in both children.
-            2. Calculate the weight of the left child.
-            3. Calculate the weight of the right child.
-            4. Calculate the entropy of the left child.
-            5. Calculate the entropy of the right child.
-            6. Calculate the weighted entropy:
-                   H_weighted =
-                       w_left * H_left + w_right * H_right
-            7. Return the calculated weighted entropy.
-
-        Output:
-            A float representing the weighted entropy of the two child nodes.
-        """
-        # TODO
-        pass
 
     def _weighted_gini(self, y_left, y_right):
-        """
-        Calculate the weighted Gini impurity after splitting a node into two children.
+        w_left = len(y_left) / (len(y_left) + len(y_right))
+        w_right = len(y_right) / (len(y_left) + len(y_right))
 
-        Input:
-            y_left: Target labels belonging to the left child.
-            y_right: Target labels belonging to the right child.
+        y_left_values , y_left_counts = np.unique(y_left , return_counts=True)
+        y_right_values , y_right_counts = np.unique(y_right , return_counts=True)
 
-        Steps:
-            1. Calculate the total number of samples in both children.
-            2. Calculate the weight of the left child.
-            3. Calculate the weight of the right child.
-            4. Calculate the Gini impurity of the left child.
-            5. Calculate the Gini impurity of the right child.
-            6. Calculate the weighted Gini impurity:
-                   Gini_weighted = w_left * Gini_left + w_right * Gini_right
-            7. Return the calculated weighted Gini impurity.
+        y_left_gini = 1
+        y_right_gini = 1
 
-        Output:
-            A float representing the weighted Gini impurity of the two child nodes.
-        """
-        # TODO
-        pass
+        for i in y_left_counts :
+            p = (i / len(y_left))
+            y_left_gini -= p * p
+
+        for i in y_right_counts :
+            p = (i / len(y_right))
+            y_right_gini -= p * p
+
+        return y_left_gini * w_left + y_right_gini * w_right
+                        
+
     def _entropy(self, y):
-        """
-        Calculate the entropy of the given target labels.
+        y_values , y_counts = np.unique(y , return_counts=True)
 
-        Input:
-            y: Target labels belonging to a single node.
+        y_entropy = 0
+        
+        for i in y_counts :
+            p = (i / len(y))
+            if (p != 0) :
+                y_entropy += p * math.log(p , 2)
+            
+        y_entropy *= -1
 
-        Steps:
-            1. Find the unique classes in y.
-            2. Count the occurrences of each class.
-            3. Calculate the probability of each class.
-            4. Calculate entropy using:
-                   H(Y) = -Σ p_i * log2(p_i)
-            5. Return the calculated entropy.
+        return y_entropy
 
-        Output:
-            A float representing the entropy of y.
-        """
-        # TODO
-        pass
 
     def _gini(self, y):
-        """
-        Calculate the Gini impurity of the given target labels.
+        y_values , y_counts = np.unique(y , return_counts=True)
 
-        Input:
-            y: Target labels belonging to a single node.
+        y_gini = 1
 
-        Steps:
-            1. Find the unique classes in y.
-            2. Count the occurrences of each class.
-            3. Calculate the probability of each class.
-            4. Calculate Gini impurity using:
-                   Gini(Y) = 1 - Σ p_i^2
-            5. Return the calculated Gini impurity.
+        for i in y_counts :
+            p = (i / len(y))
+            y_gini -= p * p
 
-        Output:
-            A float representing the Gini impurity of y.
-        """
-        # TODO
-        pass
+        return y_gini
+
 
     def _information_gain(self, y, y_left, y_right):
-        """
-        Calculate the information gain produced by a split.
+        if (self.criterion == "gini") :
+            return self._gini(y) - self._weighted_gini(y_left , y_right)
+        if (self.criterion == "entroy") :
+            return self._entropy(y) - self._weighted_entropy(y_left , y_right)
 
-        Input:
-            y: Target labels of the parent node.
-            y_left: Target labels of the left child.
-            y_right: Target labels of the right child.
-
-        Steps:
-            1. Calculate the impurity of the parent node according to
-               the selected criterion.
-            2. Calculate the weighted impurity of the two child nodes
-               using the selected criterion.
-            3. Calculate information gain:
-                   Information Gain =
-                       Parent Impurity - Weighted Child Impurity
-            4. Return the calculated information gain.
-
-        Output:
-            A float representing the information gain of the split.
-        """
-        # TODO
-        pass
 
     def fit(self, X, y):
         """
