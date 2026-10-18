@@ -1,13 +1,9 @@
 ﻿import math
 import numpy as np
 
+# [] _find_best_split should be more optimized in the append section
+
 class Node:
-    """
-        Represents a node of the decision tree.
-    
-        Internal node: feature_index, threshold, left, right are set.
-        Leaf node:     value (predicted class) is set, children are None.
-    """
     def __init__(self , feature_index=None , threshold=None , left=None , right=None , value=None , samples=0 , impurity=0.0 , class_counts=None) :
         self.feature_index = feature_index
         self.threshold = threshold
@@ -23,6 +19,16 @@ class Node:
         if (self.left == None and self.right == None) :
             return True
         return False
+    
+    def log(self) :
+        print(self.feature_index ,
+        self.threshold ,
+        self.left ,
+        self.right ,
+        self.value ,
+        self.samples ,
+        self.impurity ,
+        self.class_counts , sep=" ")
 
 
 
@@ -43,6 +49,7 @@ class DecisionTree:
         self.n_features_ = None
         self.n_classes_ = None
         self.classes_ = None
+        self.classes_count_ = None
         self.n_nodes_ = None
         self.depth_ = None
         self.feature_importances_ = None
@@ -74,7 +81,9 @@ class DecisionTree:
         return y_left_entropy * w_left + y_right_entropy * w_right
 
 
-    def _weighted_gini(self, y_left, y_right):
+    def _weighted_gini(self, y_left, y_right) :
+        if (len(y_left) == 0 and len(y_right) == 0) :
+            return 0
         w_left = len(y_left) / (len(y_left) + len(y_right))
         w_right = len(y_right) / (len(y_left) + len(y_right))
 
@@ -125,534 +134,206 @@ class DecisionTree:
     def _information_gain(self, y, y_left, y_right):
         if (self.criterion == "gini") :
             return self._gini(y) - self._weighted_gini(y_left , y_right)
-        if (self.criterion == "entroy") :
+        if (self.criterion == "entropy") :
             return self._entropy(y) - self._weighted_entropy(y_left , y_right)
 
 
-    def fit(self, X, y):
-        """
-        Train the Decision Tree using the given training data.
-
-        Input:
-            X:
-                Training features.
-                Shape:
-                    (n_samples, n_features)
-
-            y:
-                Target labels corresponding to the samples in X.
-                Shape:
-                    (n_samples,)
-
-        How it works:
-            1. Validate or prepare the input data if required.
-            2. Store the number of features in the training data.
-            3. Determine the unique target classes.
-            4. Store the number of classes.
-            5. Build the decision tree recursively starting from the root.
-            6. Store the resulting root node in self.root_.
-            7. Calculate any additional learned attributes required by the
-               Decision Tree implementation.
-
-        Output:
-            Returns self so that the model can be used in a scikit-learn-like
-            manner:
-
-                tree.fit(X, y).predict(X)
-
-        Notes:
-            The main recursive tree-construction logic should be implemented
-            inside _build_tree().
-        """
-        # TODO
-        pass
-
-    def _build_tree(self, X, y, depth):
-        """
-        Recursively build a subtree from the given training samples.
-
-        Input:
-            X:
-                Feature matrix containing the samples that belong to the
-                current node.
-                Shape:
-                    (n_samples, n_features)
-
-            y:
-                Target labels corresponding to X.
-                Shape:
-                    (n_samples,)
-
-            depth:
-                Current depth of the node being constructed.
-                The root node starts at depth 0.
-
-        How it works:
-            1. Check whether the current node should become a leaf.
-            2. If a stopping condition is satisfied, create and return
-               a leaf node.
-            3. Find the best feature and threshold for splitting the
-               current samples.
-            4. Split X and y into left and right child subsets.
-            5. Recursively build the left subtree.
-            6. Recursively build the right subtree.
-            7. Create an internal Node containing the selected feature,
-               threshold, and child nodes.
-            8. Return the newly created node.
-
-        Output:
-            Returns a Node object representing the root of the subtree
-            constructed from the given samples.
-
-            The returned node can be either:
-                - a leaf node, or
-                - an internal node with left and right children.
-
-        Important:
-            This function is recursive. Each recursive call operates on
-            a smaller subset of the training data and a greater tree depth.
-
-            The complete implementation should respect the Decision Tree
-            hyperparameters such as:
-                - max_depth
-                - min_samples_split
-                - min_samples_leaf
-                - criterion
-        """
-        # 1. Check whether this node should become a leaf.
-        # TODO: implement
-
-        # 2. Find the best feature and threshold.
-        # TODO: implement
-
-        # 3. Split the dataset using the selected feature and threshold.
-        # TODO: implement
-
-        # 4. Build the left subtree.
-        # left = self._build_tree(X_left, y_left, depth + 1)
+    def fit(self , X : np.ndarray , y : np.ndarray):
+        y_values , y_counts = np.unique(y , return_counts=True)
+        self.classes_ = y_values
+        self.classes_count_ = y_counts
+        self.n_classes_ = len(y_values)
+        self.n_features_ = X.shape[1]
+        self.n_nodes_ = 1
+        self.depth_ = 0
+        self.feature_importances_ = np.zeros(shape=(X.shape[1],))
+
+        if (self._is_stopping_condition(X , y , 0)) :
+            self.root_ = self._create_leaf(y)
+            return self
+        
+        best_feature_index , best_threshold = self._find_best_split(X , y)
+        self.root_ = Node(feature_index=best_feature_index  , threshold=best_threshold  , samples=X.shape[0] , impurity = self._calculate_impurity(y))
+        # self.feature_importances_ = np.append(self.feature_importances_ , best_feature_index)
+        
+        X_left , y_left , X_right , y_right = self._split(X , y , best_feature_index , best_threshold)
+        self.feature_importances_[best_feature_index] = self._entropy(y)
+        # print("entropy" , self._entropy(y))
+        # print("gini" , self._gini(y))
+        # print("weighted entropy" , self._weighted_entropy(y_left , y_right))
+        # print("weighted gini" , self._weighted_gini(y_left , y_right))
+        # print("impurity" , self._calculate_impurity(y))
+        # print("calc information gain" , self._calculate_information_gain(y , y_left , y_right))
+        # print("information gain" , self._information_gain(y , y_left , y_right))
+
+        self.root_.left = self._build_tree(X_left , y_left , 1)
+        self.root_.right = self._build_tree(X_right , y_right , 1)
+        
+        return self
+
+
+    def _build_tree(self , X : np.ndarray , y : np.ndarray , depth):
+        self.n_nodes_ += 1
+        self.depth_ = max(depth , self.depth_)
+
+        if (self._is_stopping_condition(X , y , depth)) :
+            return self._create_leaf(y)
+        
+        best_feature_index , best_threshold = self._find_best_split(X , y)
+        node = Node(feature_index=best_feature_index , threshold=best_threshold  , samples=X.shape[0] , impurity = self._calculate_impurity(y))
+        # self.feature_importances_ = np.append(self.feature_importances_ , best_feature_index)
+
+        X_left , y_left , X_right , y_right = self._split(X , y , best_feature_index , best_threshold)
+        self.feature_importances_[best_feature_index] = self._entropy(y)
+        
+        node.left = self._build_tree(X_left , y_left , depth + 1)
+        node.right = self._build_tree(X_right , y_right , depth + 1)
+
+        return node
+    
+
+    def _find_best_split(self , X : np.ndarray , y : np.ndarray):
+        if (self.min_samples_leaf > X.shape[0]) :
+            return None
+
+        best_feature_index = 0
+        best_threshold = 0
+        information_gain = -1
+
+        for j in range(X.shape[1]) :
+            current_column = X[: , j]
+            candidates = self._get_candidate_thresholds(current_column)
+            new_information_gain = -1
+
+            for cand in candidates :
+                y_left = np.array([])
+                y_right = np.array([])
+                for i in range(len(y)) :
+                    if (X[i][j] <= cand) :
+                        y_left = np.append(y_left , y[i])
+                    else :
+                        y_right = np.append(y_right , y[i])
+                        
+                new_information_gain = max(self._information_gain(y , y_left , y_right) , new_information_gain)
+                
+                if (len(y_left) < self.min_samples_leaf or len(y_right) < self.min_samples_leaf) :
+                    continue
+
+                if (new_information_gain > information_gain) :
+                    best_feature_index = j
+                    best_threshold = cand
+
+                information_gain = new_information_gain
+
+        # print("information_gain:" , information_gain)           # for debugging
+        # print("best_feature_index:" , best_feature_index)       # for debugging
+        # print("best_thresold:" , best_threshold)                # for debugging
+
+        if (information_gain < 0) :
+            return None
+        
+        return (best_feature_index , best_threshold)
+
+
+    def _split(self, X, y, feature_index, threshold) :
+        left_mask = X[: , feature_index] <= threshold
+        right_mask = ~left_mask
+
+        X_left = X[left_mask]
+        X_right = X[right_mask]
 
-        # 5. Build the right subtree.
-        # right = self._build_tree(X_right, y_right, depth + 1)
+        y_left = y[left_mask]
+        y_right = y[right_mask]
+        
+        return (X_left , y_left , X_right , y_right)
 
-        # 6. Create the current internal node.
-        # TODO: implement
-        pass
+    def _get_candidate_thresholds(self, feature_values : np.ndarray):
+        sorted_feature_values = np.sort(np.unique(feature_values))
+        candidate_threshhold = np.ndarray(shape=(len(sorted_feature_values) - 1,))
 
-    def _find_best_split(self, X, y):
-        """
-        Find the best feature and threshold for splitting the current node.
+        if (len(sorted_feature_values) <= 1) :
+            return candidate_threshhold
+        else :
+            for i in range(0 , len(sorted_feature_values) - 1) :
+                candidate_threshhold[i] = (sorted_feature_values[i] + sorted_feature_values[i + 1]) / 2
 
-        Input:
-            X:
-                Feature matrix of the current node.
-
-                Shape:
-                    (n_samples, n_features)
-
-                Each row represents one sample and each column represents
-                one feature.
-
-            y:
-                Target labels corresponding to the samples in X.
-
-                Shape:
-                    (n_samples,)
-
-        How it works:
-            1. Consider the features that can be used for splitting.
-
-            2. For each feature, determine the candidate thresholds that
-               can be used to divide the samples into two groups.
-
-            3. For each candidate threshold:
-                   - Split the samples into a left and a right child.
-                   - Make sure the resulting split satisfies the required
-                     constraints such as min_samples_leaf.
-                   - Calculate the quality of the split using the selected
-                     criterion.
-                   - Measure the improvement produced by the split.
-
-            4. Keep track of the split that produces the best result.
-
-            5. After all candidate features and thresholds have been
-               considered, return the best split.
-
-        Important:
-            The quality of a split depends on the Decision Tree criterion.
-
-            For example:
-                - "entropy" uses entropy-based information gain.
-                - "gini" uses Gini impurity reduction.
-
-            A good implementation should not assume that the target labels
-            are only 0 and 1. The method should work with multiple classes.
-
-        Output:
-            Returns information describing the best split.
-
-            Expected information includes:
-                - best feature index
-                - best threshold
-
-            If no valid split can be found, the method should return a
-            representation that allows _build_tree() to handle this case
-            appropriately.
-
-        Notes for implementation:
-            - Do not modify X or y inside this method.
-            - Be careful when multiple samples have the same feature value.
-            - A candidate split must not create invalid child nodes.
-            - The method should consider the effect of min_samples_leaf.
-        """
-
-        # TODO
-        pass
-
-    def _split(self, X, y, feature_index, threshold):
-        """
-        Split the dataset into left and right child nodes using a
-        feature and threshold.
-
-        Input:
-            X:
-                Feature matrix.
-
-                Shape:
-                    (n_samples, n_features)
-
-            y:
-                Target labels corresponding to X.
-
-                Shape:
-                    (n_samples,)
-
-            feature_index:
-                Index of the feature used for splitting.
-
-                Example:
-                    feature_index = 2
-
-                means that the third feature of X is used.
-
-            threshold:
-                Value used to divide the samples into two groups.
-
-                Samples are assigned to the left or right child according
-                to their value for the selected feature.
-
-        How it works:
-            1. Select the feature specified by feature_index.
-
-            2. Compare the value of this feature for every sample with
-               the given threshold.
-
-            3. Determine which samples belong to the left child.
-
-            4. Determine which samples belong to the right child.
-
-            5. Use the same sample selection to split both X and y.
-               This is important because the feature rows and their
-               corresponding target labels must remain aligned.
-
-            6. Return the four resulting arrays.
-
-        Output:
-            Returns:
-
-                X_left:
-                    Feature matrix containing samples assigned to the
-                    left child.
-
-                y_left:
-                    Target labels corresponding to X_left.
-
-                X_right:
-                    Feature matrix containing samples assigned to the
-                    right child.
-
-                y_right:
-                    Target labels corresponding to X_right.
-
-            The following relationship should hold:
-
-                len(y_left) + len(y_right) == len(y)
-
-            and:
-
-                len(X_left) == len(y_left)
-                len(X_right) == len(y_right)
-
-        Important:
-            The splitting operation should not change the order of features
-            inside X.
-
-            It should also preserve the correspondence between each sample
-            and its target label.
-        """
-
-        # TODO
-        pass
-
-    def _get_candidate_thresholds(self, feature_values):
-        """
-        Generate candidate thresholds for a single feature.
-
-        Input:
-            feature_values:
-                Values of one feature for all samples in the current node.
-
-                Example:
-                    [1, 2, 3, 4, 5]
-
-        How it works:
-            1. Consider the values of the selected feature.
-            2. Identify the distinct values.
-            3. Sort the distinct values.
-            4. Consider the boundaries between consecutive values.
-            5. Generate a threshold between each pair of consecutive
-               distinct values.
-            6. Return the generated thresholds.
-
-        Example:
-
-            feature_values = [1, 2, 3, 4]
-
-            Sorted unique values:
-                [1, 2, 3, 4]
-
-            Candidate thresholds:
-                (1 + 2) / 2 = 1.5
-                (2 + 3) / 2 = 2.5
-                (3 + 4) / 2 = 3.5
-
-            Result:
-                [1.5, 2.5, 3.5]
-
-        Why do we use midpoints?
-
-            A threshold only needs to separate two consecutive distinct
-            feature values.
-
-            For example, thresholds 1.2 and 1.8 produce exactly the same
-            partition when the feature values are 1 and 2:
-
-                value <= 1.2    -> {1}
-                value > 1.2     -> {2}
-
-                value <= 1.8    -> {1}
-                value > 1.8     -> {2}
-
-            Therefore, testing the midpoint is sufficient.
-
-        Important:
-            Duplicate feature values should not produce duplicate
-            thresholds.
-
-        Output:
-            A collection of candidate threshold values that can be used
-            by _find_best_split() to evaluate possible splits.
-        """
-
-        # TODO
-        pass
+        return candidate_threshhold
 
     def _calculate_impurity(self, y):
-        """
-        Calculate the impurity of a node according to the selected criterion.
-
-        Input:
-            y:
-                Target labels of the samples belonging to the current node.
-
-                Shape:
-                    (n_samples,)
-
-                Example:
-                    [0, 0, 1, 1]
-
-        How it works:
-            1. Check which criterion was selected when the DecisionTree
-               object was created.
-
-            2. If the criterion is "entropy", calculate the entropy of y.
-
-            3. If the criterion is "gini", calculate the Gini impurity of y.
-
-            4. Return the calculated impurity.
-
-        Output:
-            A float representing the impurity of the given node.
-
-            For example:
-                criterion = "entropy"
-                y = [0, 0, 1, 1]
-
-            returns:
-                1.0
-
-        Notes:
-            This method should use the existing _entropy() and _gini()
-            methods instead of duplicating their mathematical formulas.
-
-            The method should support all valid target labels and should
-            not assume that the classes are only 0 and 1.
-        """
-
-        # TODO
-        pass
+        if (self.criterion == "gini") :
+            return self._gini(y)
+        elif (self.criterion == "entropy") :
+            return self._entropy(y)
+                
 
     def _calculate_information_gain(self, parent_y, left_y, right_y):
-        """
-        Calculate the information gain produced by a split.
+        parent_impurity = self._calculate_impurity(parent_y)
+        left_child_impurity = self._calculate_impurity(left_y)
+        right_child_impurity = self._calculate_impurity(right_y)
+        
+        if (len(left_y) == 0) :
+            left_child_impurity = 0
+        else :
+            left_child_impurity = left_child_impurity * (len(left_y) / len(parent_y))
+        
+        if (len(right_y) == 0) :
+            right_child_impurity = 0
+        else :
+            right_child_impurity = right_child_impurity * (len(right_y) / len(parent_y))
+        
+        return parent_impurity - left_child_impurity - right_child_impurity
 
-        Input:
-            parent_y:
-                Target labels of the parent node before splitting.
+    def _is_stopping_condition(self , X : np.ndarray , y : np.ndarray , depth):
+        if ((not self.max_depth == None and depth >= self.max_depth) or X.shape[0] < self.min_samples_split) :
+            return True
+        
+        y_values , y_counts = np.unique(y , return_counts=True)
+        if (len(y_values) == 1) :
+            return True
+        
+        return False
 
-            left_y:
-                Target labels of the left child after splitting.
+    def _create_leaf(self , y) :
+        y_values , y_counts = np.unique(y , return_counts=True)
 
-            right_y:
-                Target labels of the right child after splitting.
+        node_value = 0
+        class_count_max = -1
+        idx = 0
+        for i in y_counts :
+            if (i > class_count_max) :
+                class_count_max = i
+                node_value = y_values[idx]
+            idx += 1
 
-        How it works:
-            1. Calculate the impurity of the parent node using the
-               selected criterion.
+        node = Node(value=node_value)
+        return node
+    
 
-            2. Calculate the impurity of the left child.
 
-            3. Calculate the impurity of the right child.
 
-            4. Calculate the number of samples in each child.
 
-            5. Calculate the weight of each child:
+    def _predict_one(self , x):
+        node = self.root_
+        while (not node.is_leaf()) :
+            threshold = node.threshold
+            feature_index = node.feature_index
+            if (threshold >= x[feature_index]) :
+                node = node.left
+            else :
+                node = node.right
 
-                   left_weight =
-                       len(left_y) / len(parent_y)
+        return node.value
 
-                   right_weight =
-                       len(right_y) / len(parent_y)
+    def predict(self , X):
+        if (self.root_ == None) :
+            raise RuntimeError
+            return
 
-            6. Calculate the weighted impurity of the children:
+        prediction = np.ndarray(shape=(X.shape[0],) , dtype=object)
 
-                   weighted_child_impurity =
-                       left_weight * left_impurity
-                       +
-                       right_weight * right_impurity
+        idx = 0
+        for x in X :
+            prediction[idx] = self._predict_one(x)
+            idx += 1
 
-            7. Calculate information gain:
-
-                   information_gain =
-                       parent_impurity
-                       -
-                       weighted_child_impurity
-
-            8. Return the information gain.
-
-        Output:
-            A float representing the reduction in impurity caused by
-            the split.
-
-            A larger information gain means that the split produces
-            a greater reduction in impurity.
-
-        Important:
-            The child impurities must be weighted according to their
-            number of samples.
-
-            Do not calculate the child impurity as a simple average:
-
-                (left_impurity + right_impurity) / 2
-
-            unless the two children contain the same number of samples.
-
-            The selected criterion must be respected.
-        """
-
-        # TODO
-        pass
-
-    def _is_stopping_condition(self, X, y, depth):
-        """
-        Check whether the current node should become a leaf.
-
-        Input:
-            X: Feature matrix of the current node.
-            y: Target labels of the current node.
-            depth: Current depth of the node.
-
-        How it works:
-            Check whether the tree should stop splitting the current node.
-            Possible conditions include:
-                - all samples have the same class
-                - maximum depth has been reached
-                - there are not enough samples to split
-
-        Output:
-            True  -> stop splitting and create a leaf.
-            False -> continue splitting the node.
-        """
-
-        # TODO
-        pass
-
-    def _create_leaf(self, y):
-        """
-        Create a leaf node using the target labels of the current node.
-
-        Input:
-            y: Target labels of the samples in the current node.
-
-        How it works:
-            Determine the class that should be predicted by this leaf.
-            The leaf should also store any other information required by
-            the Node structure.
-
-        Output:
-            A Node object representing the leaf.
-        """
-
-        # TODO
-        pass
-    def _predict_one(self, x):
-        """
-        Predict the class of a single sample.
-
-        Input:
-            x:
-                Feature values of one sample.
-
-        How it works:
-            1. Start from the root of the tree.
-            2. Check whether the current node is a leaf.
-            3. If it is a leaf, return its predicted class.
-            4. Otherwise, compare the sample's feature value with
-               the node's threshold.
-            5. Move to the left or right child.
-            6. Continue until a leaf is reached.
-
-        Output:
-            The predicted class for the given sample.
-        """
-
-        # TODO
-        pass
-    def predict(self, X):
-        """
-        Predict the class of each sample in X.
-
-        Input:
-            X:
-                Feature matrix containing the samples to predict.
-
-        How it works:
-            1. Apply _predict_one() to each sample.
-            2. Collect the predicted classes.
-            3. Return all predictions.
-
-        Output:
-            An array containing one predicted class for each sample.
-        """
-
-        # TODO
-        pass
+        return prediction
